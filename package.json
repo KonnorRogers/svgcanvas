@@ -1,7 +1,7 @@
 {
-  "name": "svgcanvas",
+  "name": "@konnorr/svgcanvas",
   "version": "3.0.0",
-  "description": "svgcanvas",
+  "description": "Convert 2D Canvas Context calls to SVG",
   "main": "dist/svgcanvas.js",
   "scripts": {
     "watch": "rollup -c -w",
