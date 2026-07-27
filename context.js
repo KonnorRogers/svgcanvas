@@ -746,9 +746,14 @@ export default (function () {
         this.lineTo(x + unit_vec_origin_start_tangent[0] * radius,
                     y + unit_vec_origin_start_tangent[1] * radius);
 
+        // this.arc() needs to know if its rendering counterClockwise
+        const counterClockwise =
+     unit_vec_p1_p0[0] * unit_vec_p1_p2[1] -
+     unit_vec_p1_p0[1] * unit_vec_p1_p2[0] > 0;
+
         // Connect the start tangent point to the end tangent point by arc
         // and adding the end tangent point to the subpath.
-        this.arc(x, y, radius, startAngle, endAngle);
+        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
     };
 
     /**
