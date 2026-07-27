@@ -1,6 +1,6 @@
 {
   "name": "@konnorr/svgcanvas",
-  "version": "2.6.2",
+  "version": "2.6.3",
   "description": "Convert 2D Canvas Context calls to SVG",
   "publishConfig": {
     "access": "public"
