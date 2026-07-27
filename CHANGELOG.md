@@ -1,5 +1,9 @@
 ## CHANGELOG
 
+### v2.6.2
+
+- fix: Fixed an issue where `arcTo` was not properly rendering
+
 ### v2.6.1
 
 - fix: Fixed an issue where `arcTo` would not pass along `counterClockwise` to `arc()`
