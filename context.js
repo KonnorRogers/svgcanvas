@@ -663,7 +663,7 @@ export default (function () {
     /**
      * Adds the arcTo to the current path
      *
-     * @see http://www.w3.org/TR/2015/WD-2dcontext-20150514/#dom-context-2d-arcto
+     * @see https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-arcto
      */
     Context.prototype.arcTo = function (x1, y1, x2, y2, radius) {
         // Let the point (x0, y0) be the last point in the subpath.
@@ -697,14 +697,10 @@ export default (function () {
         // and connect that point to the previous point (x0, y0) by a straight line.
         var unit_vec_p1_p0 = normalize([x0 - x1, y0 - y1]);
         var unit_vec_p1_p2 = normalize([x2 - x1, y2 - y1]);
-        var cross = unit_vec_p1_p0[0] * unit_vec_p1_p2[1]
-                - unit_vec_p1_p0[1] * unit_vec_p1_p2[0];
-
-        if (cross === 0) {
+        if (unit_vec_p1_p0[0] * unit_vec_p1_p2[1] === unit_vec_p1_p0[1] * unit_vec_p1_p2[0]) {
             this.lineTo(x1, y1);
             return;
         }
-
         // Otherwise, let The Arc be the shortest arc given by circumference of the circle that has radius radius,
         // and that has one point tangent to the half-infinite line that crosses the point (x0, y0) and ends at the point (x1, y1),
         // and that has a different point tangent to the half-infinite line that ends at the point (x1, y1), and crosses the point (x2, y2).
@@ -712,7 +708,7 @@ export default (function () {
 
         // note that both vectors are unit vectors, so the length is 1
         var cos = (unit_vec_p1_p0[0] * unit_vec_p1_p2[0] + unit_vec_p1_p0[1] * unit_vec_p1_p2[1]);
-        var theta = Math.acos(Math.abs(cos));
+        var theta = Math.acos(cos);
 
         // Calculate origin
         var unit_vec_p1_origin = normalize([
@@ -751,11 +747,9 @@ export default (function () {
         this.lineTo(x + unit_vec_origin_start_tangent[0] * radius,
                     y + unit_vec_origin_start_tangent[1] * radius);
 
-        const counterClockwise = cross > 0
-
         // Connect the start tangent point to the end tangent point by arc
         // and adding the end tangent point to the subpath.
-        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
+        this.arc(x, y, radius, startAngle, endAngle);
     };
 
     /**
@@ -939,7 +933,7 @@ export default (function () {
                 "font-weight": style.fontWeight,
 
                 // canvas doesn't support underline natively, but we do :)
-                "text-decoration": this.__fontUnderline,
+                //"text-decoration": this.__fontUnderline, //its never set and ends up as "undefined" in svg.
                 "x": x,
                 "y": y,
                 "text-anchor": getTextAnchor(this.textAlign),
