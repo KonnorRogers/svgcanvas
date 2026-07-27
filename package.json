@@ -1,6 +1,6 @@
 {
   "name": "svgcanvas",
-  "version": "2.5.0",
+  "version": "3.0.0",
   "description": "svgcanvas",
   "main": "dist/svgcanvas.js",
   "scripts": {
@@ -11,14 +11,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/zenozeng/svgcanvas.git"
+    "url": "https://github.com/konnorrogers/svgcanvas.git"
   },
   "keywords": [
     "canvas",
     "svg",
     "canvas2svg"
   ],
-  "author": "Zeno Zeng",
+  "author": "Konnor Rogers",
   "license": "MIT",
   "devDependencies": {
     "@rollup/plugin-commonjs": "^21.0.2",

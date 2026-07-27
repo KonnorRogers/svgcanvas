@@ -8,9 +8,11 @@
  *  Author:
  *  Kerry Liu
  *  Zeno Zeng
+ *  Konnor Rogers
  *
  *  Copyright (c) 2014 Gliffy Inc.
  *  Copyright (c) 2021 Zeno Zeng
+ *  Copyright (c) 2026 Konnor Rogers
  */
 
 import * as utils from './utils';
@@ -695,7 +697,10 @@ export default (function () {
         // and connect that point to the previous point (x0, y0) by a straight line.
         var unit_vec_p1_p0 = normalize([x0 - x1, y0 - y1]);
         var unit_vec_p1_p2 = normalize([x2 - x1, y2 - y1]);
-        if (unit_vec_p1_p0[0] * unit_vec_p1_p2[1] === unit_vec_p1_p0[1] * unit_vec_p1_p2[0]) {
+        var cross = unit_vec_p1_p0[0] * unit_vec_p1_p2[1]
+                - unit_vec_p1_p0[1] * unit_vec_p1_p2[0];
+
+        if (cross === 0) {
             this.lineTo(x1, y1);
             return;
         }
@@ -746,9 +751,11 @@ export default (function () {
         this.lineTo(x + unit_vec_origin_start_tangent[0] * radius,
                     y + unit_vec_origin_start_tangent[1] * radius);
 
+        const counterClockwise = cross > 0
+
         // Connect the start tangent point to the end tangent point by arc
         // and adding the end tangent point to the subpath.
-        this.arc(x, y, radius, startAngle, endAngle);
+        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
     };
 
     /**
@@ -1088,11 +1095,11 @@ export default (function () {
 
         this.__addPathCommand(format("A {rx} {ry} {xAxisRotation} {largeArcFlag} {sweepFlag} {endX} {endY}",
             {
-                rx:radiusX, 
-                ry:radiusY, 
-                xAxisRotation:rotation*(180/Math.PI), 
-                largeArcFlag:largeArcFlag, 
-                sweepFlag:sweepFlag, 
+                rx:radiusX,
+                ry:radiusY,
+                xAxisRotation:rotation*(180/Math.PI),
+                largeArcFlag:largeArcFlag,
+                sweepFlag:sweepFlag,
                 endX:endX,
                 endY:endY
             }));
@@ -1346,7 +1353,7 @@ export default (function () {
     }
 
     /**
-     * 
+     *
      * @returns The scale component of the transform matrix as {x,y}.
      */
     Context.prototype.__getTransformScale = function() {
@@ -1357,7 +1364,7 @@ export default (function () {
     }
 
     /**
-     * 
+     *
      * @returns The rotation component of the transform matrix in radians.
      */
     Context.prototype.__getTransformRotation = function() {

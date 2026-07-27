@@ -5,7 +5,7 @@ Draw on SVG using Canvas's 2D Context API. A maintained fork of
 
 ## Demo
 
-https://zenozeng.github.io/svgcanvas/test/
+https://konnorrogers.github.io/svgcanvas/test/
 
 ## How it works
 
@@ -15,7 +15,7 @@ normal canvas. As you call methods, we build up a scene graph in SVG.
 ## Usage
 
 ```javascript
-import { Context } from "svgcanvas";
+import { Context } from "@konnorr/svgcanvas";
 
 const ctx = new Context(500, 500);
 
@@ -30,7 +30,7 @@ const mySerializedSVG = ctx.getSerializedSvg();
 Wrapping canvas elements:
 
 ```javascript
-import { Context, Element } from "svgcanvas";
+import { Context, Element } from "@konnorr/svgcanvas";
 
 const canvas = document.createElement("canvas");
 const context2D = canvas.getContext("2d");
