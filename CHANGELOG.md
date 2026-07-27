@@ -1,5 +1,9 @@
 ## CHANGELOG
 
+### v2.6.3
+
+- fix: more arcTo fixes...for real this time though.
+
 ### v2.6.2
 
 - fix: Fixed an issue where `arcTo` was not properly rendering

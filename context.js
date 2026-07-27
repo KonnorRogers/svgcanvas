@@ -666,96 +666,65 @@ export default (function () {
      * @see https://html.spec.whatwg.org/multipage/canvas.html#dom-context-2d-arcto
      */
     Context.prototype.arcTo = function (x1, y1, x2, y2, radius) {
-        // Let the point (x0, y0) be the last point in the subpath.
         var x0 = this.__currentPosition && this.__currentPosition.x;
         var y0 = this.__currentPosition && this.__currentPosition.y;
+        if (typeof x0 == "undefined" || typeof y0 == "undefined") return;
+        if (radius < 0) throw new Error("IndexSizeError: The radius provided (" + radius + ") is negative.");
 
-        // First ensure there is a subpath for (x1, y1).
-        if (typeof x0 == "undefined" || typeof y0 == "undefined") {
-            return;
-        }
+        // --- geometry in untransformed user space ---
+        var a = [x0 - x1, y0 - y1], b = [x2 - x1, y2 - y1];
+        var na = Math.hypot(a[0], a[1]), nb = Math.hypot(b[0], b[1]);
+        if (na === 0 || nb === 0 || radius === 0) { this.lineTo(x1, y1); return; }
 
-        // Negative values for radius must cause the implementation to throw an IndexSizeError exception.
-        if (radius < 0) {
-            throw new Error("IndexSizeError: The radius provided (" + radius + ") is negative.");
-        }
+        var ua = [a[0] / na, a[1] / na], ub = [b[0] / nb, b[1] / nb];
+        var cos = Math.max(-1, Math.min(1, ua[0] * ub[0] + ua[1] * ub[1]));
+        var ang = Math.acos(cos);
+        if (Math.abs(ang) < 1e-9 || Math.abs(ang - Math.PI) < 1e-9) { this.lineTo(x1, y1); return; }
 
-        // If the point (x0, y0) is equal to the point (x1, y1),
-        // or if the point (x1, y1) is equal to the point (x2, y2),
-        // or if the radius radius is zero,
-        // then the method must add the point (x1, y1) to the subpath,
-        // and connect that point to the previous point (x0, y0) by a straight line.
-        if (((x0 === x1) && (y0 === y1))
-            || ((x1 === x2) && (y1 === y2))
-            || (radius === 0)) {
-            this.lineTo(x1, y1);
-            return;
-        }
+        var distEdge = radius / Math.tan(ang / 2);
+        var t1 = [x1 + ua[0] * distEdge, y1 + ua[1] * distEdge]; // tangent point on incoming edge
+        var t2 = [x1 + ub[0] * distEdge, y1 + ub[1] * distEdge]; // tangent point on outgoing edge
 
-        // Otherwise, if the points (x0, y0), (x1, y1), and (x2, y2) all lie on a single straight line,
-        // then the method must add the point (x1, y1) to the subpath,
-        // and connect that point to the previous point (x0, y0) by a straight line.
-        var unit_vec_p1_p0 = normalize([x0 - x1, y0 - y1]);
-        var unit_vec_p1_p2 = normalize([x2 - x1, y2 - y1]);
-        if (unit_vec_p1_p0[0] * unit_vec_p1_p2[1] === unit_vec_p1_p0[1] * unit_vec_p1_p2[0]) {
-            this.lineTo(x1, y1);
-            return;
-        }
-        // Otherwise, let The Arc be the shortest arc given by circumference of the circle that has radius radius,
-        // and that has one point tangent to the half-infinite line that crosses the point (x0, y0) and ends at the point (x1, y1),
-        // and that has a different point tangent to the half-infinite line that ends at the point (x1, y1), and crosses the point (x2, y2).
-        // The points at which this circle touches these two lines are called the start and end tangent points respectively.
+        var bis = [ua[0] + ub[0], ua[1] + ub[1]];
+        var nbis = Math.hypot(bis[0], bis[1]);
+        var ubis = [bis[0] / nbis, bis[1] / nbis];
+        var cdist = radius / Math.sin(ang / 2);
+        var cx = x1 + ubis[0] * cdist, cy = y1 + ubis[1] * cdist; // arc center
 
-        // note that both vectors are unit vectors, so the length is 1
-        var cos = (unit_vec_p1_p0[0] * unit_vec_p1_p2[0] + unit_vec_p1_p0[1] * unit_vec_p1_p2[1]);
-        var theta = Math.acos(cos);
-
-        // sign of the cross product tells us which way the corner turns
-        var cross = unit_vec_p1_p0[0] * unit_vec_p1_p2[1] - unit_vec_p1_p0[1] * unit_vec_p1_p2[0];
-        var counterClockwise = cross > 0;
-
-        // Calculate origin
-        var unit_vec_p1_origin = normalize([
-            unit_vec_p1_p0[0] + unit_vec_p1_p2[0],
-            unit_vec_p1_p0[1] + unit_vec_p1_p2[1]
-        ]);
-        var len_p1_origin = radius / Math.sin(theta / 2);
-        var x = x1 + len_p1_origin * unit_vec_p1_origin[0];
-        var y = y1 + len_p1_origin * unit_vec_p1_origin[1];
-
-        // Calculate start angle and end angle
-        // rotate 90deg clockwise (note that y axis points to its down)
-        var unit_vec_origin_start_tangent = [
-            -unit_vec_p1_p0[1],
-            unit_vec_p1_p0[0]
-        ];
-        // rotate 90deg counter clockwise (note that y axis points to its down)
-        var unit_vec_origin_end_tangent = [
-            unit_vec_p1_p2[1],
-            -unit_vec_p1_p2[0]
-        ];
-
-        var getAngle = function (vector) {
-            // get angle (clockwise) between vector and (1, 0)
-            var x = vector[0];
-            var y = vector[1];
-            if (y >= 0) { // note that y axis points to its down
-                return Math.acos(x);
-            } else {
-                return -Math.acos(x);
-            }
+        var a1 = Math.atan2(t1[1] - cy, t1[0] - cx);
+        var a2 = Math.atan2(t2[1] - cy, t2[0] - cx);
+        var midOf = function (s) {
+            var d = a2 - a1;
+            if (s) { if (d < 0) d += 2 * Math.PI; } else { if (d > 0) d -= 2 * Math.PI; }
+            var m = a1 + d / 2;
+            return [cx + radius * Math.cos(m), cy + radius * Math.sin(m)];
         };
-        var startAngle = getAngle(unit_vec_origin_start_tangent);
-        var endAngle = getAngle(unit_vec_origin_end_tangent);
+        var dP1 = function (p) { return Math.hypot(p[0] - x1, p[1] - y1); };
+        var sweep = dP1(midOf(1)) < dP1(midOf(0)) ? 1 : 0; // sweep that rounds the corner
 
-        // Connect the point (x0, y0) to the start tangent point by a straight line
-        this.lineTo(x + unit_vec_origin_start_tangent[0] * radius,
-                    y + unit_vec_origin_start_tangent[1] * radius);
+        // --- emit like Context.prototype.arc: scale radii, transform the endpoint ---
+        var scaleX = Math.hypot(this.__transformMatrix.a, this.__transformMatrix.b);
+        var scaleY = Math.hypot(this.__transformMatrix.c, this.__transformMatrix.d);
+        // a mirror (negative determinant) flips visual winding, so flip the sweep flag
+        var det = this.__transformMatrix.a * this.__transformMatrix.d -
+                this.__transformMatrix.b * this.__transformMatrix.c;
+        if (det < 0) sweep = sweep ? 0 : 1;
 
-        // Connect the start tangent point to the end tangent point by arc
-        // and adding the end tangent point to the subpath.
-        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
-    }
+        var end = this.__matrixTransform(t2[0], t2[1]);
+
+        this.lineTo(t1[0], t1[1]); // lineTo applies the transform to the start point itself
+        this.__addPathCommand(format("A {rx} {ry} {xAxisRotation} {largeArcFlag} {sweepFlag} {endX} {endY}", {
+            rx: radius * scaleX,
+            ry: radius * scaleY,
+            xAxisRotation: 0,
+            largeArcFlag: 0,          // arcTo's corner arc is always the minor arc
+            sweepFlag: sweep,
+            endX: end.x,
+            endY: end.y
+        }));
+
+        this.__currentPosition = { x: t2[0], y: t2[1] }; // stored untransformed, like lineTo
+    };
 
     /**
      * Sets the stroke property on the current element
