@@ -710,6 +710,10 @@ export default (function () {
         var cos = (unit_vec_p1_p0[0] * unit_vec_p1_p2[0] + unit_vec_p1_p0[1] * unit_vec_p1_p2[1]);
         var theta = Math.acos(cos);
 
+        // sign of the cross product tells us which way the corner turns
+        var cross = unit_vec_p1_p0[0] * unit_vec_p1_p2[1] - unit_vec_p1_p0[1] * unit_vec_p1_p2[0];
+        var counterClockwise = cross > 0;
+
         // Calculate origin
         var unit_vec_p1_origin = normalize([
             unit_vec_p1_p0[0] + unit_vec_p1_p2[0],
@@ -730,6 +734,7 @@ export default (function () {
             unit_vec_p1_p2[1],
             -unit_vec_p1_p2[0]
         ];
+
         var getAngle = function (vector) {
             // get angle (clockwise) between vector and (1, 0)
             var x = vector[0];
@@ -749,8 +754,8 @@ export default (function () {
 
         // Connect the start tangent point to the end tangent point by arc
         // and adding the end tangent point to the subpath.
-        this.arc(x, y, radius, startAngle, endAngle);
-    };
+        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
+    }
 
     /**
      * Sets the stroke property on the current element
