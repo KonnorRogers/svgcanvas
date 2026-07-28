@@ -1,5 +1,9 @@
 ## CHANGELOG
 
+### v2.6.4
+
+- fix: update `arcTo` to be closer to the original
+
 ### v2.6.3
 
 - fix: more arcTo fixes...for real this time though.
