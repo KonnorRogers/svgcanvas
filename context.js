@@ -668,62 +668,77 @@ export default (function () {
     Context.prototype.arcTo = function (x1, y1, x2, y2, radius) {
         var x0 = this.__currentPosition && this.__currentPosition.x;
         var y0 = this.__currentPosition && this.__currentPosition.y;
-        if (typeof x0 == "undefined" || typeof y0 == "undefined") return;
-        if (radius < 0) throw new Error("IndexSizeError: The radius provided (" + radius + ") is negative.");
 
-        // --- geometry in untransformed user space ---
-        var a = [x0 - x1, y0 - y1], b = [x2 - x1, y2 - y1];
-        var na = Math.hypot(a[0], a[1]), nb = Math.hypot(b[0], b[1]);
-        if (na === 0 || nb === 0 || radius === 0) { this.lineTo(x1, y1); return; }
+        // First ensure there is a subpath for (x1, y1).
+        if (typeof x0 == "undefined" || typeof y0 == "undefined") {
+            return;
+        }
 
-        var ua = [a[0] / na, a[1] / na], ub = [b[0] / nb, b[1] / nb];
-        var cos = Math.max(-1, Math.min(1, ua[0] * ub[0] + ua[1] * ub[1]));
-        var ang = Math.acos(cos);
-        if (Math.abs(ang) < 1e-9 || Math.abs(ang - Math.PI) < 1e-9) { this.lineTo(x1, y1); return; }
+        // Negative values for radius must cause the implementation to throw an IndexSizeError exception.
+        if (radius < 0) {
+            throw new Error("IndexSizeError: The radius provided (" + radius + ") is negative.");
+        }
 
-        var distEdge = radius / Math.tan(ang / 2);
-        var t1 = [x1 + ua[0] * distEdge, y1 + ua[1] * distEdge]; // tangent point on incoming edge
-        var t2 = [x1 + ub[0] * distEdge, y1 + ub[1] * distEdge]; // tangent point on outgoing edge
+        // If the point (x0, y0) is equal to the point (x1, y1),
+        // or if the point (x1, y1) is equal to the point (x2, y2),
+        // or if the radius radius is zero,
+        // then the method must add the point (x1, y1) to the subpath,
+        // and connect that point to the previous point (x0, y0) by a straight line.
+        if (((x0 === x1) && (y0 === y1))
+            || ((x1 === x2) && (y1 === y2))
+            || (radius === 0)) {
+            this.lineTo(x1, y1);
+            return;
+        }
 
-        var bis = [ua[0] + ub[0], ua[1] + ub[1]];
-        var nbis = Math.hypot(bis[0], bis[1]);
-        var ubis = [bis[0] / nbis, bis[1] / nbis];
-        var cdist = radius / Math.sin(ang / 2);
-        var cx = x1 + ubis[0] * cdist, cy = y1 + ubis[1] * cdist; // arc center
+        var unit_vec_p1_p0 = normalize([x0 - x1, y0 - y1]);
+        var unit_vec_p1_p2 = normalize([x2 - x1, y2 - y1]);
+        if (unit_vec_p1_p0[0] * unit_vec_p1_p2[1] === unit_vec_p1_p0[1] * unit_vec_p1_p2[0]) {
+            this.lineTo(x1, y1);
+            return;
+        }
 
-        var a1 = Math.atan2(t1[1] - cy, t1[0] - cx);
-        var a2 = Math.atan2(t2[1] - cy, t2[0] - cx);
-        var midOf = function (s) {
-            var d = a2 - a1;
-            if (s) { if (d < 0) d += 2 * Math.PI; } else { if (d > 0) d -= 2 * Math.PI; }
-            var m = a1 + d / 2;
-            return [cx + radius * Math.cos(m), cy + radius * Math.sin(m)];
+
+        var cos = (unit_vec_p1_p0[0] * unit_vec_p1_p2[0] + unit_vec_p1_p0[1] * unit_vec_p1_p2[1]);
+
+        var clamp = (num, min, max) => {
+            return Math.min(Math.max(num, min), max)
+        }
+
+        // Clamp cos between -1 and 1
+        cos = clamp(-1, cos, 1)
+        var theta = Math.acos(cos);
+
+        // Arc center, along the angle bisector.
+        var unit_vec_p1_origin = normalize([
+            unit_vec_p1_p0[0] + unit_vec_p1_p2[0],
+            unit_vec_p1_p0[1] + unit_vec_p1_p2[1]
+        ]);
+        var len_p1_origin = radius / Math.sin(theta / 2);
+        var x = x1 + len_p1_origin * unit_vec_p1_origin[0];
+        var y = y1 + len_p1_origin * unit_vec_p1_origin[1];
+
+        // Angles from the center to the start (incoming edge) and end (outgoing edge) tangent points.
+        var len_p1_tangent = radius / Math.tan(theta / 2);
+
+        var getAngle = function (vector) {
+            var vectorX = vector[0];
+            var vectorY = vector[1];
+
+            // get angle (clockwise) between vector and (1, 0)
+            return Math.atan2(
+                (y1 + vectorY * len_p1_tangent) - y,
+                (x1 + vectorX * len_p1_tangent) - x
+            );
         };
-        var dP1 = function (p) { return Math.hypot(p[0] - x1, p[1] - y1); };
-        var sweep = dP1(midOf(1)) < dP1(midOf(0)) ? 1 : 0; // sweep that rounds the corner
 
-        // --- emit like Context.prototype.arc: scale radii, transform the endpoint ---
-        var scaleX = Math.hypot(this.__transformMatrix.a, this.__transformMatrix.b);
-        var scaleY = Math.hypot(this.__transformMatrix.c, this.__transformMatrix.d);
-        // a mirror (negative determinant) flips visual winding, so flip the sweep flag
-        var det = this.__transformMatrix.a * this.__transformMatrix.d -
-                this.__transformMatrix.b * this.__transformMatrix.c;
-        if (det < 0) sweep = sweep ? 0 : 1;
+        var startAngle = getAngle(unit_vec_p1_p0)
+        var endAngle = getAngle(unit_vec_p1_p2)
 
-        var end = this.__matrixTransform(t2[0], t2[1]);
+        // The corner is always the minor arc; take the shorter signed sweep direction.
+        var counterClockwise = Math.atan2(Math.sin(endAngle - startAngle), Math.cos(endAngle - startAngle)) < 0;
 
-        this.lineTo(t1[0], t1[1]); // lineTo applies the transform to the start point itself
-        this.__addPathCommand(format("A {rx} {ry} {xAxisRotation} {largeArcFlag} {sweepFlag} {endX} {endY}", {
-            rx: radius * scaleX,
-            ry: radius * scaleY,
-            xAxisRotation: 0,
-            largeArcFlag: 0,          // arcTo's corner arc is always the minor arc
-            sweepFlag: sweep,
-            endX: end.x,
-            endY: end.y
-        }));
-
-        this.__currentPosition = { x: t2[0], y: t2[1] }; // stored untransformed, like lineTo
+        this.arc(x, y, radius, startAngle, endAngle, counterClockwise);
     };
 
     /**
@@ -995,6 +1010,11 @@ export default (function () {
 
         var scaleX = Math.hypot(this.__transformMatrix.a, this.__transformMatrix.b);
         var scaleY = Math.hypot(this.__transformMatrix.c, this.__transformMatrix.d);
+
+        // A mirrored transform (negative determinant) reverses visual winding.
+        var det = this.__transformMatrix.a * this.__transformMatrix.d -
+                  this.__transformMatrix.b * this.__transformMatrix.c;
+        if (det < 0) { sweepFlag = sweepFlag ? 0 : 1; }
 
         this.lineTo(startX, startY);
         this.__addPathCommand(format("A {rx} {ry} {xAxisRotation} {largeArcFlag} {sweepFlag} {endX} {endY}",
